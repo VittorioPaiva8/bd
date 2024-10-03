@@ -1,0 +1,261 @@
+CREATE DATABASE IF NOT EXISTS sistema_vendas;
+USE sistema_vendas;
+
+-- Tabela: departamento
+CREATE TABLE departamento (
+    codDepartamento SERIAL PRIMARY KEY,
+    nome VARCHAR(40) NOT NULL UNIQUE,
+    descricaoFuncional VARCHAR(80),
+    localizacao TEXT
+);
+
+-- Tabela: estado
+CREATE TABLE estado (
+    siglaEstado CHAR(2) PRIMARY KEY,
+    nome VARCHAR(30) NOT NULL UNIQUE
+);
+
+-- Tabela: cidade
+CREATE TABLE cidade (
+    codCidade SERIAL PRIMARY KEY,
+    nome VARCHAR(50) NOT NULL UNIQUE,
+    siglaEstado CHAR(2) NOT NULL,
+    FOREIGN KEY (siglaEstado) REFERENCES estado(siglaEstado)
+);
+
+-- Tabela: vendedor
+CREATE TABLE vendedor (
+    codVendedor SERIAL PRIMARY KEY,
+    nome VARCHAR(60) NOT NULL,
+    dataNascimento DATE,
+    endereco VARCHAR(60),
+    cep CHAR(8),
+    telefone VARCHAR(20),
+    codCidade INT,
+    dataContratacao DATE DEFAULT CURRENT_DATE,
+    codDepartamento INT,
+    FOREIGN KEY (codCidade) REFERENCES cidade(codCidade),
+    FOREIGN KEY (codDepartamento) REFERENCES departamento(codDepartamento)
+);
+
+-- Tabela: cliente
+CREATE TABLE cliente (
+    codCliente SERIAL PRIMARY KEY,
+    endereco VARCHAR(60),
+    codCidade INT NOT NULL,
+    telefone VARCHAR(20),
+    tipo CHAR(1) CHECK (tipo IN ('F', 'J')),
+    dataCadastro DATE DEFAULT CURRENT_DATE,
+    cep CHAR(8),
+    FOREIGN KEY (codCidade) REFERENCES cidade(codCidade)
+);
+
+-- Tabela: clienteFisico
+CREATE TABLE clienteFisico (
+    codCliente INT PRIMARY KEY,
+    nome VARCHAR(50) NOT NULL,
+    dataNascimento DATE,
+    cpf VARCHAR(11) NOT NULL UNIQUE,
+    rg VARCHAR(12),  -- Aumentado o tamanho para 12, conforme padrões de RG
+    FOREIGN KEY (codCliente) REFERENCES cliente(codCliente)
+);
+
+-- Tabela: clienteJuridico
+CREATE TABLE clienteJuridico (
+    codCliente INT PRIMARY KEY,
+    nomeFantasia VARCHAR(80) UNIQUE,
+    razaoSocial VARCHAR(80) NOT NULL UNIQUE,
+    ie VARCHAR(20) NOT NULL UNIQUE,
+    cgc VARCHAR(20) NOT NULL UNIQUE,
+    FOREIGN KEY (codCliente) REFERENCES cliente(codCliente)
+);
+
+-- Tabela: classe
+CREATE TABLE classe (
+    codClasse SERIAL PRIMARY KEY,
+    sigla VARCHAR(12),
+    nome VARCHAR(40) NOT NULL,
+    descricao VARCHAR(80)  -- Corrigido o nome da coluna
+);
+
+-- Tabela: produto
+CREATE TABLE produto (
+    codProduto SERIAL PRIMARY KEY,
+    descricao VARCHAR(40) NOT NULL,
+    unidadeMedida CHAR(2),
+    embalagem VARCHAR(15) DEFAULT 'Indefinido',  -- Corrigido para adicionar valor padrão
+    codClasse INT,
+    precoVenda NUMERIC(14, 2),
+    estoqueMinimo NUMERIC(14, 2),
+    FOREIGN KEY (codClasse) REFERENCES classe(codClasse)
+);
+
+-- Tabela: produtoLote
+CREATE TABLE produtoLote (
+    codProduto INT,
+    numeroLote INT,
+    quantidadeAdquirida NUMERIC(14, 2),
+    quantidadeVendida NUMERIC(14, 2),
+    precoCusto NUMERIC(14, 2),
+    dataValidade DATE,
+    PRIMARY KEY (codProduto, numeroLote),
+    FOREIGN KEY (codProduto) REFERENCES produto(codProduto)
+);
+
+-- Tabela: venda
+CREATE TABLE venda (
+    codVenda SERIAL PRIMARY KEY,
+    codCliente INT,
+    codVendedor INT,
+    dataVenda DATE DEFAULT CURRENT_DATE,
+    enderecoEntrega VARCHAR(60),
+    status VARCHAR(30) CHECK (status IN ('Despachada', 'Em Processamento', 'Cancelada', 'Finalizada')),  -- Restrição de valores para status
+    FOREIGN KEY (codCliente) REFERENCES cliente(codCliente),
+    FOREIGN KEY (codVendedor) REFERENCES vendedor(codVendedor)
+);
+
+-- Tabela: itemVenda
+CREATE TABLE itemVenda (
+    codVenda INT,
+    codProduto INT,
+    numeroLote INT,
+    quantidade NUMERIC(14, 2) NOT NULL CHECK (quantidade > 0),
+    PRIMARY KEY (codVenda, codProduto, numeroLote),
+    FOREIGN KEY (codVenda) REFERENCES venda(codVenda),
+    FOREIGN KEY (codProduto, numeroLote) REFERENCES produtoLote(codProduto, numeroLote)
+);
+
+-- Tabela: fornecedor
+CREATE TABLE fornecedor (
+    codFornecedor SERIAL PRIMARY KEY,
+    nomeFantasia VARCHAR(80) NOT NULL UNIQUE,
+    razaoSocial VARCHAR(80) NOT NULL UNIQUE,
+    ie VARCHAR(20) NOT NULL UNIQUE,
+    cgc VARCHAR(20) NOT NULL UNIQUE,
+    endereco VARCHAR(60),
+    telefone VARCHAR(20),
+    codCidade INT,
+    FOREIGN KEY (codCidade) REFERENCES cidade(codCidade)
+);
+
+-- Tabela: pedido
+CREATE TABLE pedido (
+    codPedido SERIAL PRIMARY KEY,
+    dataRealizacao DATE DEFAULT CURRENT_DATE,
+    dataEntrega DATE,
+    codFornecedor INT,
+    valor NUMERIC(20, 2),
+    FOREIGN KEY (codFornecedor) REFERENCES fornecedor(codFornecedor)
+);
+
+-- Tabela: itemPedido
+CREATE TABLE itemPedido (
+    codPedido INT,
+    codProduto INT,
+    quantidade NUMERIC(14, 2) NOT NULL CHECK (quantidade > 0),
+    PRIMARY KEY (codPedido, codProduto),
+    FOREIGN KEY (codPedido) REFERENCES pedido(codPedido),
+    FOREIGN KEY (codProduto) REFERENCES produto(codProduto)
+);
+
+
+
+
+-- 1. Listar todas as informações dos produtos cadastrados.
+SELECT * FROM produto;
+
+-- 2. Listar o código, nome fantasia, endereço, telefone e código da cidade dos fornecedores cadastrados.
+SELECT codFornecedor, nomeFantasia, endereco, telefone, codCidade
+FROM fornecedor;
+
+-- 3. Listar o código da venda, data de venda de todas as vendas com status de ‘Despachada’.
+SELECT codVenda, dataVenda
+FROM venda
+WHERE status = 'Despachada';
+
+-- 4. Listar todas as informações da tabela de pessoas jurídicas.
+SELECT * FROM clienteJuridico;
+
+-- 5. Listar o número do lote dos produtos que estão com a data de validade vencida.
+SELECT numeroLote
+FROM produtoLote
+WHERE dataValidade < CURRENT_DATE;
+
+-- 6. Listar o nome dos departamentos.
+SELECT nome
+FROM departamento;
+
+
+
+
+-- 1. Pedidos realizados no ano de 2014 (junção natural)
+SELECT codPedido, dataRealizacao, dataEntrega, nomeFantasia
+FROM pedido
+NATURAL JOIN fornecedor
+WHERE YEAR(dataRealizacao) = 2014;
+
+-- 2. Vendedores da cidade de Apucarana (equi-join)
+SELECT vendedor.nome, vendedor.dataNascimento, cidade.nome AS nomeCidade
+FROM vendedor
+JOIN cidade ON vendedor.codCidade = cidade.codCidade
+WHERE cidade.nome = 'Apucarana';
+
+-- 3. Vendas do produto ‘Cal’ (junção natural)
+SELECT venda.codVenda, venda.dataVenda, vendedor.nome, produtoLote.numeroLote, produto.descricao
+FROM venda
+NATURAL JOIN itemVenda
+NATURAL JOIN produto
+NATURAL JOIN produtoLote
+NATURAL JOIN vendedor
+WHERE produto.descricao = 'Cal';
+
+-- 4. Produtos da classe ‘Acabamentos’
+SELECT classe.sigla, classe.nome, produto.codProduto, produto.descricao, produto.estoqueMinimo
+FROM classe
+JOIN produto ON classe.codClasse = produto.codClasse
+WHERE classe.nome = 'Acabamentos';
+
+-- 5. Pedidos do fornecedor ‘Incepa’
+SELECT fornecedor.nomeFantasia, pedido.codPedido, pedido.dataRealizacao, pedido.dataEntrega
+FROM fornecedor
+JOIN pedido ON fornecedor.codFornecedor = pedido.codFornecedor
+WHERE fornecedor.nomeFantasia = 'Incepa';
+
+-- 6. Todos os produtos e, quando existirem, as vendas relativas ao produto (LEFT JOIN)
+SELECT produto.codProduto, produto.descricao, itemVenda.codVenda
+FROM produto
+LEFT JOIN itemVenda ON produto.codProduto = itemVenda.codProduto;
+
+-- 7. Todos os fornecedores e seus pedidos (LEFT JOIN)
+SELECT fornecedor.nomeFantasia, pedido.codPedido, pedido.dataEntrega
+FROM fornecedor
+LEFT JOIN pedido ON fornecedor.codFornecedor = pedido.codFornecedor;
+
+-- 8. Todos os departamentos e seus vendedores (RIGHT JOIN)
+SELECT departamento.nome AS nomeDepartamento, departamento.localizacao, vendedor.nome AS nomeFuncionario, vendedor.dataNascimento
+FROM departamento
+RIGHT JOIN vendedor ON departamento.codDepartamento = vendedor.codDepartamento;
+
+-- Desafio Opcional
+-- 9. Todos os clientes e suas compras (RIGHT JOIN)
+SELECT COALESCE(clienteFisico.nome, clienteJuridico.nomeFantasia) AS nomeCliente, venda.codVenda
+FROM cliente
+LEFT JOIN clienteFisico ON cliente.codCliente = clienteFisico.codCliente
+LEFT JOIN clienteJuridico ON cliente.codCliente = clienteJuridico.codCliente
+RIGHT JOIN venda ON cliente.codCliente = venda.codCliente;
+
+-- 10. Classes e produtos da classe (LEFT JOIN)
+SELECT classe.*, produto.descricao, produtoLote.precoCusto
+FROM classe
+LEFT JOIN produto ON classe.codClasse = produto.codClasse
+LEFT JOIN produtoLote ON produto.codProduto = produtoLote.codProduto;
+
+-- 11. Todos os estados e suas cidades (RIGHT JOIN)
+SELECT estado.*, cidade.*
+FROM estado
+RIGHT JOIN cidade ON estado.siglaEstado = cidade.siglaEstado;
+
+-- 12. Produtos e seus lotes (LEFT JOIN)
+SELECT produto.codProduto, produto.descricao, produtoLote.numeroLote, produtoLote.dataValidade
+FROM produto
+LEFT JOIN produtoLote ON produto.codProduto = produtoL
